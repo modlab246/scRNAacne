@@ -9,6 +9,7 @@ We share the R codes and R data files used to generate the figures for the manus
 The R data files can be downloaded at https://drive.google.com/drive/folders/1xy32aQAXP0oXH9X7wfqgOTfsFBz1uK-Q?usp=sharing.
 
 R code used for single-cell RNA-seq analysis: https://github.com/modlab246/scRNAacne/blob/main/singlecell
+
 R code used for spatial-seq analysis: https://github.com/modlab246/scRNAacne/blob/main/spatialseq
 
 R code for Seq-Scope as cited in Cho, Chun-Seok, et al. "Microscopic examination of spatial transcriptome using Seq-Scope." Cell (2021).
