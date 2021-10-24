@@ -4,7 +4,12 @@ library(cowplot)
 library(ggplot2)
 
 #Load data files
-
+load("./allcelltype.Rdata")
+load("./fibroblast.Rdata")
+load("./keratinocyte.Rdata")
+load("./endothelial.Rdata")
+load("./lymphocyte.Rdata")
+load("./myeloid.Rdata")
 
 #Sample code for Fig. 1a, 1d, 1g
 DimPlot(allcelltype, reduction = "umap", group.by = "celltype", label = T, label.size = 3)
@@ -45,7 +50,7 @@ ggplot(z1, aes(x=type, y=ncells, fill=orig, group=orig)) +
   labs(x="Cluster", y="% Component of Samples", fill="Sample")+
   scale_x_continuous(breaks=0:max(z1$type))
 
-#Sample code for Fig. 2a-b
+#Sample code for Fig. 2a, 2b, S2b, S4e, S5f
 VlnPlot(macrophage, features = c("IL1A", "IL1B","TNF","IL6", "IL12B", group.by = "celltype")
 
 #Fig. 2c
@@ -64,7 +69,113 @@ p4=ggplot(exprs, aes(macrophage.stim_ct,MMP12)) + geom_jitter(size=0.1) +
         axis.ticks.x=element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(),plot.title = element_text (hjust = 0.5))+ ggtitle ("MMP12") + labs(y="Expression Level")
 plot_grid(p1,p2,p3,p4)
 
-# Fig. S1b
+
+
+#Fig. 2d, Pseudotime
+library(monocle)
+myeloid1.2 = subset(myeloid, idents = c("TREM2 macrophage","M2-like macrophage"))
+#Extract data, phenotype data, and feature data from the SeuratObject
+data <- as(as.matrix(myeloid1.2@assays$RNA@data), 'sparseMatrix')
+
+pd <- new('AnnotatedDataFrame', data = myeloid1.2@meta.data)
+
+fData <- data.frame(gene_short_name = row.names(data), row.names = row.names(data))
+fd <- new('AnnotatedDataFrame', data = fData)
+
+#Construct monocle cds
+cds <- newCellDataSet(data,
+                      phenoData = pd,
+                      featureData = fd,
+                      lowerDetectionLimit = 0.5,
+                      expressionFamily = negbinomial.size())
+cds <- estimateSizeFactors(cds)
+expressed_genes <- row.names(subset(fData(cds)))
+clustering_DEG_genes = differentialGeneTest(cds[expressed_genes,], cores =10,
+                                            fullModelFormulaStr = '~seurat_clusters')
+sample_ordering_genes = row.names(clustering_DEG_genes)[order(clustering_DEG_genes$qval)][1:500]
+cds = setOrderingFilter(cds, ordering_genes = sample_ordering_genes)
+
+#Reduce dimension and order cells
+cds = reduceDimension(cds)
+cds = orderCells(cds)
+p1 = plot_cell_trajectory(cds, color_by = "celltype")
+p2 = plot_cell_trajectory(cds, color_by = "Pseudotime")
+plot_grid(p1,p2)
+
+#Figure 2e
+pseudotime = cds@phenoData@data$Pseudotime
+z = data.frame(bars=rownames(cds@phenoData@data),
+               pseudotime=pseudotime)
+head(z)
+write.csv(z, "bars_pseudotime.csv")
+
+pseudotime = read.csv("./bars_pseudotime.csv", row.names=1)
+rownames(pseudotime) = pseudotime[,1]
+bars = as.character(pseudotime$bars)
+bars = intersect(bars, colnames(myeloid1.2))
+pseudotime = pseudotime[bars,]
+subsample3 = subset(myeloid1.2, cells=bars)
+genes = rownames(subsample3)
+pseudotime$cluster = as.factor(Idents(subsample3)[bars])
+pseudotime = pseudotime[colnames(subsample3),]
+#csv 
+z = read.csv("./lungsignature.csv",
+             row.names=1, stringsAsFactors=FALSE)
+
+for (i in 1:ncol(z)){
+  genes1 = as.character(z[,i])
+  genes1 = intersect(genes1, genes)
+  module_name = paste(colnames(z)[i], "UR", sep=".")
+  subsample3 = AddModuleScore(subsample3, features=list(genes1), name=module_name)
+  pseudotime[,colnames(z[i])] = subsample3@meta.data[,paste(module_name, "1", sep="")]
+}
+colnames(z[i])
+colnames(z)[i]
+
+test1 = pseudotime[,c(2,4:23)] 
+cor1 = cor(test1[,2:ncol(test1)], pseudotime$pseudotime)
+write.csv(cor1, "corr_pseudotime_and_ur.csv")
+library(gplots)
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+cols = gg_color_hue(2)
+table(pseudotime$cluster)
+for (i in 1:ncol(test1)){
+  gene1 = colnames(test1)[i]
+  ggplot_subject = data.frame(pseudotime=pseudotime$pseudotime,
+                              counts=pseudotime[,gene1],
+                              color=pseudotime$cluster)
+  pdf(sprintf("./myeloid_plot_%s.pdf", make.names(gene1)), width=3, height=3)
+  print(ggplot(ggplot_subject, aes(x=pseudotime, y=counts)) + geom_point(aes(color=color), size=0.6) +
+          geom_smooth(color="black", size=0.5, se=FALSE) +
+          theme_classic() + labs(x="Pseudotime", y="Module Score", title=paste(gene1, "Targets", sep=" ")) +
+          guides(color=FALSE) + theme(plot.title=element_text(hjust=0.5, size=15, face="bold")) +
+          scale_color_manual(values=cols[c(1,2)]))
+  dev.off()
+}
+
+#Fig. 2f
+p1 = DimPlot(myeloid1.2,reduction = "umap", group.by = "celltype", label = T, label.size = 3)
+trem2score= list("APOE", "CTSB", "TREM2", "CD68", "GPNMB", "LPL", "SPP1", "LGALS3", "TYROBP")
+myeloid1.2 <- AddModuleScore(object = myeloid1.2, features = trem2score, name = 'trem2score')
+p2 = FeaturePlot(myeloid1.2, features = c("CCL18", "trem2score"), blend = T, blend.threshold = 0.05, min.cutoff = 0) 
+p3 = FeaturePlot(myeloid1.2, features = c("IL18", "trem2score"), blend = T, blend.threshold = 0.05, min.cutoff = 0) 
+p4 = FeaturePlot(myeloid1.2, features = c("S100A8", "trem2score"), blend = T, blend.threshold = 0.05, min.cutoff = 0) 
+p5 = FeaturePlot(myeloid1.2, features = c("S100A9", "trem2score"), blend = T, blend.threshold = 0.05, min.cutoff = 0) 
+plot_grid(p1,p2,p3,p4,p5)
+
+#Fig. 3a
+VlnPlot(keratinocyte, features = c("FDFT1", "SQLE", group.by = "celltype")
+
+#Sample code for fig. S1a, S1d, S2c, S3c, S4k, S4l, S5h
+VlnPlot(object=endo22, features=c("nFeature_RNA","nCount_RNA","percent.mito"), group.by = "seurat_clusters", pt.size = 0)
+
+#Sample code for fig. S1b, S2a, S3a, S4d, S4i, S5d, 
+Heatmap(soupx62,  features =soupx62_cluster.topgenes, disp.min = 0 ,size = 3.5, group.by = "seurat_clusters", angle=0)
+
+# Fig. S1c
 cts = data.frame(bars=colnames(
 ), celltypes=allcelltype$celltype, stringsAsFactors=FALSE)
 sample = subset(allcelltype, cells=rownames(cts))
@@ -108,3 +219,14 @@ ggplot(z1, aes(x=type, y=ncells, fill=orig, group=orig)) +
   scale_fill_manual(values=my_color) +
   labs(x="", y="% Component of Samples", fill=NULL) +
   theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1, size=12))
+
+#Fig S2d
+trem2score5genes= list("ABCA1", "APOE", "LPL", "SPP1", "TREM2")
+myeloid <- AddModuleScore(object = myeloid, features = trem2score5genes, name = 'trem2score5genes')
+FeaturePlot(myeloid, features = c("trem2score5genes"), cols = c("grey90","red"), min.cutoff = 0) 
+
+#Fig S2e
+DimPlot(myeloid, split.by = "donor", ncol = 6)
+
+
+
