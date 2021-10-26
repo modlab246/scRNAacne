@@ -1,41 +1,38 @@
-library(Seurat)
-library(ggplot2)
-library(patchwork)
-library(dplyr)
-load_Seurat <- function(data_dir) {
-  list.files(data_dir) # Should show filtered_feature_bc_matrix.h5
-  sample <- Load10X_Spatial(data.dir = data_dir, filename = "./filtered_feature_bc_matrix.h5")
+#Fig. 3c, Scatterpie
+library(scatterpie)
+load("./acne_singCell.Rdata")
+
+predict_assay <- function(sample) {
+  #warnplot1 = DimPlot(single_cell_object, group.by="celltype", label=TRUE)
+  anchors = FindTransferAnchors(reference=single_cell_object, query=sample, normalization.method="SCT")
+  predictions_assay = TransferData(anchorset=anchors, refdata=single_cell_object$celltype, prediction.assay=TRUE,
+                                 weight.reduction=sample[["pca"]], dim=1:30)
+  sample[["predictions"]] = predictions_assay
   return(sample)
 }
 
-run_PCA <- function(seurat) {
-  #acne <- FindVariableFeatures(seurat, assay = "Spatial", selection.method = "vst", nfeatures = 3000) 
-  #acne <- ScaleData(acne)
-  #acne <- SCTransform(seurat, ncells = 3000, verbose = TRUE)
-  acne <- SCTransform(seurat, assay = "Spatial", ncells = 3000, verbose = TRUE)
-  acne <- RunPCA(acne, verbose = FALSE)
-  acne <- FindNeighbors(acne, reduction = "pca", dims = 1:30)
-  acne <- FindClusters(acne, verbose = FALSE)
-  acne <- RunUMAP(acne, reduction = "pca", dims = 1:30)
-  return(acne)
-}
+sample_A = predict_assay(sample_A)
 
-cluster_plot <- function(seurat) {
-  acne <- run_PCA(seurat)
-  p1 <- DimPlot(acne, reduction = "umap", pt.size = 1.3, label = TRUE)
-  p2 <- SpatialDimPlot(acne, label = TRUE, label.size = 3, pt.size.factor = 2.5)
-  p1 + p2
-  return(p1 + p2)
-}
+# Make scatter pie
+celltypes = sort(rownames(GetAssayData(sample_A, assay="predictions")))
+celltypes = setdiff(celltypes, "max")
+t(GetAssayData(sample_A, assay="predictions"))
+z1 = t(GetAssayData(sample_A, assay="predictions"))[,celltypes]
+coords = sample_A@images$slice1@coordinates
+coords[,c(4)] = -coords[,c(4)]
+z1 = cbind(z1, coords)
 
-get_csv <- function(seurat, name) {
-  acne <- run_PCA(seurat)
-  markers <- FindAllMarkers(acne, assay = "Spatial")
-  write.csv(markers, name)
-}
+ggplot() + geom_scatterpie(data=z1, aes(x=imagecol, y=imagerow), pie_scale=0.58, cols=celltypes[1:length(celltypes)], color = NA) +
+  theme_classic() + labs(x=NULL, y=NULL, fill=NULL) + coord_equal()
 
-sample_A <- load_Seurat("/Users/charlotte/Desktop/Modlin_Lab/Spatial_Cell/Acne/Sample_A")
-#save(sample_A, file = "sample_A.RData")
-sample_A = run_PCA(sample_A)
-get_csv(sample_A, "marker_A.csv")
-
+genes = c("TREM2","APOE","SPP1","GPNMB","CTSB","CD68","LGALS3","TYROBP","LPL")
+sample_A = AddModuleScore(sample_A, assay = "SCT", features=list(genes), name="TREM2_Score")
+genes = c("SQLE")
+sample_A = AddModuleScore(sample_A, assay = "SCT", features=list(genes), name="SQLE")
+coords = sample_A@images$slice1@coordinates
+coords[,c(4)] = -coords[,c(4)]
+coords = as.matrix(coords[,c(4,5)])
+colnames(coords) = paste("coords", 1:2, sep="_")
+sample_A[["coords_"]] = CreateDimReducObject(embeddings = coords, key = "coords_", assay = DefaultAssay(sample_A))
+plots <- FeaturePlot(sample_A, features=c("TREM2_Score1","SQLE1"), blend=TRUE, reduction="coords_", pt.size = 2.8, cols=c("grey90","red","green")) & theme(text = element_text(face = "bold", size = 25), axis.text.x=element_text(size=20), axis.text.y=element_text(size=20))
+plots[[3]] + NoAxes() + plots[[4]] + NoLegend()
