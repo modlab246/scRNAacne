@@ -13,6 +13,5 @@ R code used for single-cell RNA-seq analysis: https://github.com/modlab246/scRNA
 R code used for spatial-seq analysis: https://github.com/modlab246/scRNAacne/blob/main/spatialseq
 
 R code for Seq-Scope as cited in Cho, Chun-Seok, et al. "Microscopic examination of spatial transcriptome using Seq-Scope." Cell (2021).
-Processed RDS files for cell type mapping analyses and H&E histology images are available at Deep Blue Data (fhttps://doi.org/10.7302/cjfe-wa35).
 Codes for the data analysis are available at Github (https://github.com/leeju-umich/Cho_Xi_Seqscope). 
 Video Demonstration of Key Procedures is available at Youtube (https://www.youtube.com/playlist?list=PLRwwF9JZ_f5P7wXjgt90o52Jz9JyMYWf4
