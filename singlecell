@@ -50,7 +50,7 @@ ggplot(z1, aes(x=type, y=ncells, fill=orig, group=orig)) +
   labs(x="Cluster", y="% Component of Samples", fill="Sample")+
   scale_x_continuous(breaks=0:max(z1$type))
 
-#Sample code for Fig. 2a, 2b, S2b, S4e, S5f
+#Sample code for Fig. 2a, 2b, 3a, S2b, S4e, S5f
 VlnPlot(macrophage, features = c("IL1A", "IL1B","TNF","IL6", "IL12B", group.by = "celltype")
 
 #Fig. 2c
@@ -71,7 +71,7 @@ plot_grid(p1,p2,p3,p4)
 
 
 
-#Fig. 2d, Pseudotime
+#Fig. 2e, Pseudotime
 library(monocle)
 myeloid1.2 = subset(myeloid, idents = c("TREM2 macrophage","M2-like macrophage"))
 #Extract data, phenotype data, and feature data from the SeuratObject
@@ -102,7 +102,7 @@ p1 = plot_cell_trajectory(cds, color_by = "celltype")
 p2 = plot_cell_trajectory(cds, color_by = "Pseudotime")
 plot_grid(p1,p2)
 
-#Figure 2e
+#Figure 2f
 pseudotime = cds@phenoData@data$Pseudotime
 z = data.frame(bars=rownames(cds@phenoData@data),
                pseudotime=pseudotime)
@@ -156,7 +156,7 @@ for (i in 1:ncol(test1)){
   dev.off()
 }
 
-#Fig. 2f
+#Fig. 2g
 p1 = DimPlot(myeloid1.2,reduction = "umap", group.by = "celltype", label = T, label.size = 3)
 trem2score= list("APOE", "CTSB", "TREM2", "CD68", "GPNMB", "LPL", "SPP1", "LGALS3", "TYROBP")
 myeloid1.2 <- AddModuleScore(object = myeloid1.2, features = trem2score, name = 'trem2score')
@@ -169,13 +169,13 @@ plot_grid(p1,p2,p3,p4,p5)
 #Fig. 3a
 VlnPlot(keratinocyte, features = c("FDFT1", "SQLE", group.by = "celltype")
 
-#Sample code for fig. S1a, S1d, S2c, S3c, S4k, S4l, S5h
+#Sample code for fig. S1a, S1b, S2c, S3c, S4k, S4l, S5h
 VlnPlot(object=endo22, features=c("nFeature_RNA","nCount_RNA","percent.mito"), group.by = "seurat_clusters", pt.size = 0)
 
-#Sample code for fig. S1b, S2a, S3a, S4d, S4i, S5d, 
+#Sample code for fig. S1c, S2a, S3a, S4d, S4i, S5d
 Heatmap(soupx62,  features =soupx62_cluster.topgenes, disp.min = 0 ,size = 3.5, group.by = "seurat_clusters", angle=0)
 
-# Fig. S1c
+# Fig. S1d
 cts = data.frame(bars=colnames(
 ), celltypes=allcelltype$celltype, stringsAsFactors=FALSE)
 sample = subset(allcelltype, cells=rownames(cts))
